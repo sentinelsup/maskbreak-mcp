@@ -1,0 +1,43 @@
+{
+  "name": "@sentinelsup/mcp",
+  "version": "0.1.2",
+  "description": "MCP server for Maskbreak — check any IP for VPNs, proxies, Tor, datacenter hosting, and fraud risk from Claude, Cursor, or any MCP client.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "fraud-detection",
+    "ip-lookup",
+    "vpn-detection",
+    "proxy-detection",
+    "bot-detection",
+    "sentinel",
+    "maskbreak"
+  ],
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "sentinel-mcp": "index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sentinelsup/maskbreak-mcp.git"
+  },
+  "homepage": "https://maskbreak.com",
+  "bugs": {
+    "url": "https://github.com/sentinelsup/maskbreak-mcp/issues"
+  },
+  "author": "Sentinel Edge Networks LTD <support@maskbreak.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  }
+}
