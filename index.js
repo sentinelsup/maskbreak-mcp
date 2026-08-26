@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Sentinel MCP server — IP fraud intelligence for MCP clients (Claude Code,
+// Maskbreak MCP server — IP fraud intelligence for MCP clients (Claude Code,
 // Claude Desktop, Cursor, ...). One stdio server, two tools.
 //
 // With SENTINEL_API_KEY set, lookups go through the authenticated API
@@ -9,6 +9,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
+
+// Read the version rather than hardcoding it — it had drifted to 0.1.0 while
+// the package was 0.1.2, so every client saw the wrong version.
+const { version: VERSION } = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8')
+);
 
 const BASE = process.env.SENTINEL_BASE_URL || 'https://maskbreak.com';
 const API_KEY = process.env.SENTINEL_API_KEY || '';
@@ -42,7 +49,7 @@ function text(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj, null, 2) }] };
 }
 
-const server = new McpServer({ name: 'sentinel', version: '0.1.0' });
+const server = new McpServer({ name: 'maskbreak', version: VERSION });
 
 server.tool(
   'lookup_ip',
