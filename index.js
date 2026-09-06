@@ -17,32 +17,55 @@ const { version: VERSION } = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8')
 );
 
-const BASE = process.env.SENTINEL_BASE_URL || 'https://maskbreak.com';
+const BASE = (process.env.SENTINEL_BASE_URL || 'https://maskbreak.com').replace(/\/+$/, '');
 const API_KEY = process.env.SENTINEL_API_KEY || '';
+const TIMEOUT_MS = 5000;
+
+async function requestJson(path, init = {}, keylessLookup = false) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { 'Accept': 'application/json', ...init.headers },
+      signal: controller.signal
+    });
+    let data;
+    try {
+      data = await res.json();
+    } catch (error) {
+      if (error.name === 'AbortError') throw error;
+      data = null;
+    }
+    if (!res.ok) {
+      const hint = keylessLookup && res.status === 429
+        ? ' (keyless mode is tightly rate-limited — set SENTINEL_API_KEY for 1,000 lookups/hour; free key at https://maskbreak.com/signup)'
+        : '';
+      throw new Error(`${data?.error || `HTTP ${res.status}`}${hint}`);
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Invalid JSON response from Maskbreak API');
+    }
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error(`Maskbreak request timed out after ${TIMEOUT_MS}ms`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function lookupIp(ip) {
-  const opts = { headers: { 'Accept': 'application/json' } };
-  let res;
   if (API_KEY) {
-    res = await fetch(`${BASE}/v1/lookup/${encodeURIComponent(ip)}`, {
-      ...opts,
-      headers: { ...opts.headers, 'Authorization': `Bearer ${API_KEY}` }
-    });
-  } else {
-    res = await fetch(`${BASE}/api/lookup`, {
-      method: 'POST',
-      headers: { ...opts.headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ip })
+    return requestJson(`/v1/lookup/${encodeURIComponent(ip)}`, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const hint = !API_KEY && res.status === 429
-      ? ' (keyless mode is tightly rate-limited — set SENTINEL_API_KEY for 1,000 lookups/hour; free key at https://maskbreak.com/signup)'
-      : '';
-    throw new Error(`${data.error || `HTTP ${res.status}`}${hint}`);
-  }
-  return data;
+  return requestJson('/api/lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip })
+  }, true);
 }
 
 function text(obj) {
@@ -53,7 +76,7 @@ const server = new McpServer({ name: 'maskbreak', version: VERSION });
 
 server.tool(
   'lookup_ip',
-  'Check an IP address for fraud signals: VPN, proxy, Tor exit node, datacenter hosting, and anonymity. Returns an allow/review/block verdict, a 0-100 risk score, the individual signals, and network info (ASN, organization, country).',
+  'Look up limited public IP intelligence: cloud-hosting ranges and Tor exit nodes. Returns known, an allow/review/block verdict, a 0-100 risk score, and nullable signals/network metadata. Unknown or false signals do not establish safety. VPN/proxy and device evidence require a browser-SDK-backed visit via /v1/evaluate, which this tool does not perform.',
   { ip: z.string().describe('Public IPv4 or IPv6 address to check, e.g. "185.220.101.34"') },
   async ({ ip }) => {
     try {
@@ -70,8 +93,7 @@ server.tool(
   {},
   async () => {
     try {
-      const res = await fetch(`${BASE}/api/status`, { headers: { 'Accept': 'application/json' } });
-      return text(await res.json());
+      return text(await requestJson('/api/status'));
     } catch (e) {
       return { ...text({ error: e.message }), isError: true };
     }

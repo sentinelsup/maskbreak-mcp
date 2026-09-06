@@ -1,7 +1,7 @@
 {
   "name": "@sentinelsup/mcp",
   "version": "0.1.3",
-  "description": "MCP server for Maskbreak — check any IP for VPNs, proxies, Tor, datacenter hosting, and fraud risk from Claude, Cursor, or any MCP client.",
+  "description": "MCP server for Maskbreak — look up public cloud-hosting and Tor IP signals, with limited reputation evidence and API status, from an MCP client.",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -36,6 +36,9 @@
   "license": "MIT",
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
