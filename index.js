@@ -2,10 +2,11 @@
 // Maskbreak MCP server — IP fraud intelligence for MCP clients (Claude Code,
 // Claude Desktop, Cursor, ...). One stdio server, two tools.
 //
-// With SENTINEL_API_KEY set, lookups go through the authenticated API
-// (GET /v1/lookup/{ip}, 1,000 req/hr on the free tier). Without a key they
-// fall back to the free web-tool endpoint, which is fine for trying it out
-// but rate-limited to a handful of lookups per minute.
+// With MASKBREAK_API_KEY set (the older SENTINEL_API_KEY still works), lookups
+// go through the authenticated API (GET /v1/lookup/{ip}; 100,000 lookups a month
+// on the Free plan). Without a key they fall back to the free web-tool endpoint,
+// which is fine for trying it out but rate-limited to a handful of lookups
+// per minute.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -18,7 +19,9 @@ const { version: VERSION } = JSON.parse(
 );
 
 const BASE = (process.env.SENTINEL_BASE_URL || 'https://maskbreak.com').replace(/\/+$/, '');
-const API_KEY = process.env.SENTINEL_API_KEY || '';
+// MASKBREAK_API_KEY is the name every doc surface uses; SENTINEL_API_KEY is
+// the older name, still read so existing client configs keep working.
+const API_KEY = process.env.MASKBREAK_API_KEY || process.env.SENTINEL_API_KEY || '';
 const TIMEOUT_MS = 5000;
 
 async function requestJson(path, init = {}, keylessLookup = false) {
@@ -39,7 +42,7 @@ async function requestJson(path, init = {}, keylessLookup = false) {
     }
     if (!res.ok) {
       const hint = keylessLookup && res.status === 429
-        ? ' (keyless mode is tightly rate-limited — set SENTINEL_API_KEY for 1,000 lookups/hour; free key at https://maskbreak.com/signup)'
+        ? ' (keyless mode is tightly rate-limited — set MASKBREAK_API_KEY for 100,000 lookups a month on the Free plan; free key at https://maskbreak.com/signup)'
         : '';
       throw new Error(`${data?.error || `HTTP ${res.status}`}${hint}`);
     }

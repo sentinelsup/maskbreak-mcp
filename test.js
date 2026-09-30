@@ -10,7 +10,9 @@ const packageInfo = JSON.parse(readFileSync(new URL('./package.json', import.met
 const lookup = { ip: '192.0.2.1', known: false, verdict: 'allow', risk_score: 0, signals: null, network: null };
 
 // Real stdio MCP exchange, but HTTP stays on a loopback fixture. No live keys.
-async function fixture(t, handler, { apiKey = '', trailingSlash = false } = {}) {
+// keyEnv is the key variables the child process sees; apiKey is shorthand for
+// { MASKBREAK_API_KEY: apiKey }, the name the docs use.
+async function fixture(t, handler, { apiKey = '', keyEnv = { MASKBREAK_API_KEY: apiKey }, trailingSlash = false } = {}) {
     const server = http.createServer(handler);
     await new Promise((resolve, reject) => {
         server.once('error', reject);
@@ -21,7 +23,7 @@ async function fixture(t, handler, { apiKey = '', trailingSlash = false } = {}) 
         args: [fileURLToPath(new URL('./index.js', import.meta.url))],
         env: {
             SENTINEL_BASE_URL: `http://127.0.0.1:${server.address().port}${trailingSlash ? '/' : ''}`,
-            SENTINEL_API_KEY: apiKey
+            ...keyEnv
         },
         stderr: 'pipe'
     });
@@ -71,6 +73,25 @@ test('keyed lookup uses bearer auth and accepts a trailing base URL slash', asyn
     assert.deepEqual(request, { method: 'GET', url: '/v1/lookup/192.0.2.1', auth: 'Bearer local-fixture-key' });
 });
 
+async function keyedAuth(t, keyEnv) {
+    let auth;
+    const client = await fixture(t, (req, res) => {
+        auth = req.headers.authorization;
+        json(res, lookup);
+    }, { keyEnv });
+    const result = await client.callTool({ name: 'lookup_ip', arguments: { ip: '192.0.2.1' } });
+    assert.notEqual(result.isError, true);
+    return auth;
+}
+
+test('the older SENTINEL_API_KEY name still authenticates', async t => {
+    assert.equal(await keyedAuth(t, { SENTINEL_API_KEY: 'legacy-fixture-key' }), 'Bearer legacy-fixture-key');
+});
+
+test('MASKBREAK_API_KEY wins when both key names are set', async t => {
+    assert.equal(await keyedAuth(t, { MASKBREAK_API_KEY: 'new-fixture-key', SENTINEL_API_KEY: 'legacy-fixture-key' }), 'Bearer new-fixture-key');
+});
+
 test('service_status preserves the status response without forwarding credentials', async t => {
     const status = { status: 'operational', services: [], uptime: {} };
     let request;
@@ -99,7 +120,7 @@ test('keyless quota errors retain the API-key setup hint', async t => {
     const client = await fixture(t, (_req, res) => json(res, { error: 'Too many lookups' }, 429));
     const result = await client.callTool({ name: 'lookup_ip', arguments: { ip: '192.0.2.1' } });
     assert.equal(result.isError, true);
-    assert.match(JSON.parse(result.content[0].text).error, /SENTINEL_API_KEY/);
+    assert.match(JSON.parse(result.content[0].text).error, /MASKBREAK_API_KEY/);
 });
 
 test('malformed and non-object successful responses are tool errors', async t => {

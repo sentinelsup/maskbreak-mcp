@@ -11,14 +11,14 @@ Look up limited public IP intelligence — cloud-hosting ranges and Tor exit nod
 
 ## Setup
 
-Grab a free API key at [maskbreak.com/signup](https://maskbreak.com/signup) (1,000 lookups/hour, shared with evaluations, no card). Keyless mode uses the free web-tool endpoint, limited to 12 lookups/minute and 80/day per caller IP. Additional endpoint and abuse-protection limits can apply.
+Grab a free API key at [maskbreak.com/signup](https://maskbreak.com/signup) (the Free plan includes 100,000 IP lookups a month, no card; paid plans from €29 a month raise it). Keyless mode uses the free web-tool endpoint, limited to 12 lookups/minute and 80/day per caller IP. Additional endpoint and abuse-protection limits can apply.
 
 Neither mode performs a browser visit. VPN/proxy and device evidence require a browser-SDK-backed `/v1/evaluate` request outside these tools; service names are available only when known. Unknown IPs, false signals and `allow` verdicts are not proof of safety.
 
 ### Claude Code
 
 ```bash
-claude mcp add sentinel -e SENTINEL_API_KEY=sk_live_your_key -- npx -y @sentinelsup/mcp
+claude mcp add sentinel -e MASKBREAK_API_KEY=sk_live_your_key -- npx -y @sentinelsup/mcp
 ```
 
 ### Claude Desktop
@@ -31,7 +31,7 @@ Add to `claude_desktop_config.json`:
     "sentinel": {
       "command": "npx",
       "args": ["-y", "@sentinelsup/mcp"],
-      "env": { "SENTINEL_API_KEY": "sk_live_your_key" }
+      "env": { "MASKBREAK_API_KEY": "sk_live_your_key" }
     }
   }
 }
@@ -39,7 +39,7 @@ Add to `claude_desktop_config.json`:
 
 ### Cursor / other MCP clients
 
-Any client that speaks stdio MCP works the same way: command `npx`, args `["-y", "@sentinelsup/mcp"]`, env `SENTINEL_API_KEY`.
+Any client that speaks stdio MCP works the same way: command `npx`, args `["-y", "@sentinelsup/mcp"]`, env `MASKBREAK_API_KEY`.
 
 ### Hosted endpoint (no install)
 
@@ -66,7 +66,7 @@ Illustrative unknown-IP response, not a live lookup:
 
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
-| `SENTINEL_API_KEY` | recommended | — | API key from your [dashboard](https://maskbreak.com/dashboard); unlocks 1,000 lookups/hour |
+| `MASKBREAK_API_KEY` | recommended | — | API key from your [dashboard](https://maskbreak.com/dashboard); unlocks your plan's lookup allowance (100,000 a month on the Free plan). Since v0.1.5; the older `SENTINEL_API_KEY` name is still read |
 | `SENTINEL_BASE_URL` | no | `https://maskbreak.com` | Override for testing |
 
 ## Failures and local checks
