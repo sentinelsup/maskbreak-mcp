@@ -21,7 +21,17 @@ const { version: VERSION } = JSON.parse(
 const BASE = (process.env.SENTINEL_BASE_URL || 'https://maskbreak.com').replace(/\/+$/, '');
 // MASKBREAK_API_KEY is the name every doc surface uses; SENTINEL_API_KEY is
 // the older name, still read so existing client configs keep working.
-const API_KEY = process.env.MASKBREAK_API_KEY || process.env.SENTINEL_API_KEY || '';
+// Trimmed (a key pasted into a client config often carries a line break),
+// and a key with a space or control character inside is not sent at all:
+// fetch would refuse it with an error quoting the whole header, and that
+// text reached the model as the tool's answer (0.1.8).
+const RAW_KEY = (process.env.MASKBREAK_API_KEY || process.env.SENTINEL_API_KEY || '').trim();
+const KEY_BROKEN = /[\s\u0000-\u001f\u007f]/.test(RAW_KEY);
+const API_KEY = KEY_BROKEN ? '' : RAW_KEY;
+const scrub = (message) => {
+  const textOf = String(message == null ? '' : message);
+  return RAW_KEY ? textOf.split(RAW_KEY).join('[api key]') : textOf;
+};
 const TIMEOUT_MS = 5000;
 
 async function requestJson(path, init = {}, keylessLookup = false) {
@@ -59,6 +69,7 @@ async function requestJson(path, init = {}, keylessLookup = false) {
 }
 
 async function lookupIp(ip) {
+  if (KEY_BROKEN) throw new Error('MASKBREAK_API_KEY contains a space, a line break or another control character. Copy it again from the Maskbreak dashboard (Settings, API keys).');
   if (API_KEY) {
     return requestJson(`/v1/lookup/${encodeURIComponent(ip)}`, {
       headers: { 'Authorization': `Bearer ${API_KEY}` }
@@ -85,7 +96,7 @@ server.tool(
     try {
       return text(await lookupIp(ip.trim()));
     } catch (e) {
-      return { ...text({ error: e.message }), isError: true };
+      return { ...text({ error: scrub(e && e.message) }), isError: true };
     }
   }
 );
@@ -98,7 +109,7 @@ server.tool(
     try {
       return text(await requestJson('/api/status'));
     } catch (e) {
-      return { ...text({ error: e.message }), isError: true };
+      return { ...text({ error: scrub(e && e.message) }), isError: true };
     }
   }
 );

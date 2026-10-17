@@ -92,6 +92,21 @@ test('MASKBREAK_API_KEY wins when both key names are set', async t => {
     assert.equal(await keyedAuth(t, { MASKBREAK_API_KEY: 'new-fixture-key', SENTINEL_API_KEY: 'legacy-fixture-key' }), 'Bearer new-fixture-key');
 });
 
+test('a key with a trailing line break is trimmed; one with a break inside is never sent nor echoed (0.1.8)', async t => {
+    let auth;
+    const client = await fixture(t, (req, res) => { auth = req.headers.authorization; json(res, lookup); }, { apiKey: 'sk_live_mcp_key\n' });
+    const ok = await client.callTool({ name: 'lookup_ip', arguments: { ip: '192.0.2.1' } });
+    assert.notEqual(ok.isError, true);
+    assert.equal(auth, 'Bearer sk_live_mcp_key');
+    let calls = 0;
+    const broken = await fixture(t, (req, res) => { calls++; json(res, lookup); }, { apiKey: 'sk_live_mcp\nkey' });
+    const refused = await broken.callTool({ name: 'lookup_ip', arguments: { ip: '192.0.2.1' } });
+    assert.equal(refused.isError, true);
+    assert.doesNotMatch(refused.content[0].text, /sk_live_mcp/, 'the key never reaches the model');
+    assert.match(refused.content[0].text, /control character/);
+    assert.equal(calls, 0, 'nothing was sent');
+});
+
 test('service_status preserves the status response without forwarding credentials', async t => {
     const status = { status: 'operational', services: [], uptime: {} };
     let request;
